@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     },
     descriptionText: {
         flexGrow: 1,
-        maxWidth: "70%",
+        width: "70%",
         textAlign: "left",
         color: Colors.gray[100],
         paddingHorizontal: 8,

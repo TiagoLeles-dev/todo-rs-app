@@ -2,8 +2,10 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, SafeAreaView, Image, FlatList, Alert, KeyboardAvoidingView } from 'react-native';
 import { Colors } from '../utils/Colors';
 import CustomInput from '../components/CustomInput';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import TaskItem from '@/components/TaskItem';
+import EmptyTask from '@/components/EmptyTask';
+import { storage } from '@/utils/Storage';
 
 export type TaskProps = {
   id: string;
@@ -11,38 +13,76 @@ export type TaskProps = {
   isDone: boolean
 }
 
-const activities: TaskProps[] = [
-  { id: '1', description: 'Integer urna interdum massa libero auctor neque turpis turpis semper. Duis vel sed fames integer.', isDone: false },
-  { id: '2', description: 'Atividade 2', isDone: false },
-  { id: '3', description: 'Atividade 3', isDone: true },
-  { id: '4', description: 'Atividade 4', isDone: false },
-  { id: '41', description: 'Atividade 41', isDone: false },
-  { id: '43', description: 'Atividade 42', isDone: false },
-  { id: '44', description: 'Atividade 43', isDone: true },
-  { id: '45', description: 'Atividade 44', isDone: false },
-  { id: '46', description: 'Atividade 45', isDone: false },
-];
-
 export default function App() {
 
-  const [taskList, setTaskList] = useState<TaskProps[]>(activities)
+  const [taskList, setTaskList] = useState<TaskProps[]>([])
   const taskDoneList = useMemo(() => taskList.filter(task => task.isDone === true).length, [taskList]);
   const createdList = useMemo(() => taskList.length, [taskList])
 
-  // const [taskDoneList, setTaskDoneList] = useState(activities.filter(task => task.isDone == true).length)
-  // const [createdList, setcreatedList] = useState(activities.length)
+  useEffect(() => {
+    const getTasks = async () => {
+      const storageTasks = await storage.tasks.get([])
+      if (storageTasks) {
+        setTaskList(storageTasks)
+      }
+    }
 
-  const handleNewTask = (task: string) => {
-    Alert.alert("nova task:", task)
+    getTasks()
+  }, [])
+
+  useEffect(() => {
+
+    const updateStorage = async () => {
+      await storage.tasks.set(taskList)
+    }
+
+    updateStorage()
+  }, [taskList])
+
+  const handleNewTask = (taskDescription: string) => {
+    if (!taskDescription.trim()) return;
+
+    const newTask: TaskProps = {
+      id: Date.now().toString(),
+      description: taskDescription,
+      isDone: false,
+    };
+
+    setTaskList(prevTasks => [...prevTasks, newTask]);
   }
 
   const handleComplete = (task: TaskProps) => {
-    Alert.alert("complete task:", task.description)
-  }
+    setTaskList(prevTasks =>
+      prevTasks.map(t =>
+        t.id === task.id ? { ...t, isDone: !t.isDone } : t
+      )
+    );
+  };
 
   const handleDelete = (task: TaskProps) => {
-    Alert.alert("delete task:", task.description)
-  }
+    if (!task.isDone) {
+      Alert.alert(
+        "Atenção",
+        `Tarefa não concluida, deseja realmente excluir a tarefa? \n\n ${task.description}`,
+        [
+          {
+            text: "Cancelar",
+            style: "cancel",
+          },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: () => {
+              setTaskList(prevTasks => prevTasks.filter(item => item.id !== task.id));
+            },
+          },
+        ]
+      );
+    } else {
+      setTaskList(prevTasks => prevTasks.filter(item => item.id !== task.id));
+    }
+  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -67,13 +107,16 @@ export default function App() {
         </View>
       </View>
 
+      {taskList.length === 0 && <View style={styles.lineSeparator} />}
+
       <View style={styles.listContainer}>
         <FlatList
-          data={activities}
+          data={taskList}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TaskItem task={item} onComplete={handleComplete} onDelete={handleDelete} />
           )}
+          ListEmptyComponent={<EmptyTask />}
         />
       </View>
     </SafeAreaView>
@@ -107,18 +150,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 24,
   },
+  lineSeparator: {
+    height: 1.5,
+    width: "90%",
+    marginTop: 20,
+    backgroundColor: Colors.gray[400]
+  },
   logo: {
     marginTop: 22,
     width: 150,
     height: 150,
     resizeMode: 'contain',
-    // backgroundColor: "bisque"
   },
-
   listContainer: {
     flex: 1,
-    marginTop: 30, // Para evitar sobreposição com o input
-    paddingTop: 20,
+    marginTop: 16,
+    paddingTop: 8,
   },
   counterNumber: {
     color: Colors.gray[100],
